@@ -1,0 +1,334 @@
+---
+/**
+ * mock/[slug].astro — the 12-tool grid matrix.
+ *
+ * One dynamic route, statically generated into 12 unique pages at build time
+ * from the pSEO dictionary. Each page ships the full interactive workbench:
+ *   - template <select> with >= 2 industry-standard presets
+ *   - live JSON editor with real-time validation
+ *   - simulated status / latency controls
+ *   - automated base64 hash URL exporter + clipboard action
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ConsoleShell from '../../components/ConsoleShell.astro';
+import { TOOLS } from '../../data/toolsDictionary.js';
+
+export function getStaticPaths() {
+  return TOOLS.map((tool) => ({ params: { slug: tool.slug }, props: { tool } }));
+}
+
+const { tool } = Astro.props;
+const toolIndex = TOOLS.findIndex((t) => t.slug === tool.slug) + 1;
+
+// Client config island: bodies are pre-stringified so the browser script
+// never needs the dictionary. `raw` templates keep their body strings as-is.
+const clientConfig = {
+  slug: tool.slug,
+  templates: tool.templates.map((t) => ({
+    id: t.id,
+    label: t.label,
+    status: t.status,
+    delay: t.delay,
+    headers: t.headers,
+    raw: Boolean(t.raw),
+    body: t.raw ? t.body : JSON.stringify(t.body, null, 2),
+  })),
+};
+---
+
+<BaseLayout
+  title={tool.title}
+  description={tool.description}
+  keywords={tool.keywords}
+  canonicalPath={`/mock/${tool.slug}`}
+>
+  <ConsoleShell activeSlug={tool.slug}>
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+      <!-- Tool header -->
+      <header>
+        <p class="text-[11px] text-dock-400">
+          <a href="/" class="hover:text-neon">~/tools</a>
+          <span class="mx-1">/</span>
+          <span class="text-dock-300">{String(toolIndex).padStart(2, '0')}</span>
+          <span class="mx-1">/</span>
+          <span class="text-neon">{tool.slug}</span>
+        </p>
+        <h1 class="mt-2 text-xl font-bold tracking-tight text-white sm:text-2xl">{tool.name}</h1>
+        <p class="mt-3 max-w-3xl text-xs leading-relaxed text-dock-300 sm:text-sm">{tool.intro}</p>
+      </header>
+
+      <!-- Workbench -->
+      <section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Mock workbench">
+        <!-- Left: compose -->
+        <div class="flex flex-col rounded-lg border border-dock-700 bg-dock-900">
+          <div class="border-b border-dock-700 px-4 py-2 text-[11px] uppercase tracking-[0.15em] text-dock-400">
+            compose payload
+          </div>
+          <div class="flex flex-1 flex-col gap-3 p-4">
+            <label class="block text-[11px] text-dock-300">
+              <span class="mb-1 block">template preset</span>
+              <select
+                id="template-select"
+                aria-label="Select a mock response template preset"
+                class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
+              >
+                {tool.templates.map((t, i) => <option value={i}>{t.label}</option>)}
+              </select>
+            </label>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block text-[11px] text-dock-300">
+                <span class="mb-1 block">status code</span>
+                <input
+                  id="status-input"
+                  type="number"
+                  min="100"
+                  max="599"
+                  aria-label="Simulated HTTP status code"
+                  class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
+                />
+              </label>
+              <label class="block text-[11px] text-dock-300">
+                <span class="mb-1 block">latency (ms)</span>
+                <input
+                  id="delay-input"
+                  type="number"
+                  min="0"
+                  max="60000"
+                  step="100"
+                  aria-label="Simulated network latency in milliseconds"
+                  class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
+                />
+              </label>
+            </div>
+
+            <label class="flex flex-1 flex-col text-[11px] text-dock-300">
+              <span class="mb-1 block">response body — live JSON editor</span>
+              <textarea
+                id="payload-editor"
+                rows="18"
+                spellcheck="false"
+                aria-label="Mock response body — live JSON editor"
+                class="dock-scroll w-full flex-1 resize-y rounded border border-dock-600 bg-dock-950 p-3 text-xs leading-relaxed text-dock-200 focus:border-neon focus:outline-none"
+              ></textarea>
+            </label>
+
+            <!-- Live validation block -->
+            <p id="validation" class="rounded border border-dock-700 bg-dock-950 px-3 py-2 text-[11px]" role="status" aria-live="polite">
+              — validating —
+            </p>
+          </div>
+        </div>
+
+        <!-- Right: export -->
+        <div class="flex flex-col gap-4">
+          <div class="rounded-lg border border-dock-700 bg-dock-900">
+            <div class="border-b border-dock-700 px-4 py-2 text-[11px] uppercase tracking-[0.15em] text-dock-400">
+              exported mock url
+            </div>
+            <div class="flex flex-col gap-3 p-4">
+              <!-- Single-line showcase of the (potentially very long) mock-hash
+                   link, clipped with text-overflow: ellipsis. The full URL lives
+                   in the copyable textarea below. -->
+              <p
+                id="url-preview"
+                class="truncate rounded border border-dock-700 bg-dock-950 px-3 py-2 text-[11px] text-mint"
+                title=""
+              >—</p>
+              <textarea
+                id="mock-url"
+                rows="5"
+                readonly
+                spellcheck="false"
+                class="dock-scroll w-full resize-none break-all rounded border border-dock-600 bg-dock-950 p-3 text-[11px] leading-relaxed text-neon focus:border-neon focus:outline-none"
+                aria-label="Generated mock URL — full text, select to copy"></textarea>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  id="copy-btn"
+                  type="button"
+                  aria-label="Copy mock URL to clipboard"
+                  class="rounded border border-neon/50 bg-neon/10 px-4 py-2 text-xs font-bold text-neon transition-colors hover:bg-neon/20 focus:outline-none focus:ring-1 focus:ring-neon"
+                >
+                  ⧉ copy url
+                </button>
+                <a
+                  id="open-link"
+                  href="/api/v1"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="Open the generated mock response in a new tab"
+                  class="rounded border border-dock-600 px-4 py-2 text-xs text-dock-300 transition-colors hover:border-mint/60 hover:text-mint"
+                >
+                  ▸ open mock ↗
+                </a>
+                <span id="url-meta" class="ml-auto text-[10px] text-dock-400"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-dock-700 bg-dock-900">
+            <div class="border-b border-dock-700 px-4 py-2 text-[11px] uppercase tracking-[0.15em] text-dock-400">
+              simulated response headers
+            </div>
+            <div id="headers-preview" class="dock-scroll overflow-x-auto p-4 text-[11px] leading-relaxed text-dock-300"></div>
+          </div>
+
+          <div class="rounded-lg border border-dock-700 bg-dock-900 p-4 text-[11px] leading-relaxed text-dock-400">
+            <p class="text-dock-300">$ man {tool.navLabel}</p>
+            <p class="mt-2">
+              Everything above is encoded into the <span class="text-neon">#data=</span> fragment of the
+              exported URL — deflated and base64url-packed by your browser. Fragments are never sent to
+              any server, so this mock is shareable <em>and</em> private. Paste the URL anywhere:
+              a teammate's browser decodes it identically.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- pSEO keyword targets -->
+      <section class="mt-6" aria-label="Related searches">
+        <h2 class="text-[10px] uppercase tracking-[0.2em] text-dock-400">grep -i related-searches</h2>
+        <ul class="mt-2 flex flex-wrap gap-2">
+          {
+            tool.keywords.map((kw) => (
+              <li class="rounded border border-dock-700 bg-dock-900 px-2 py-1 text-[11px] text-dock-300">{kw}</li>
+            ))
+          }
+        </ul>
+      </section>
+    </div>
+  </ConsoleShell>
+</BaseLayout>
+
+<!-- Per-page config island consumed by the shared workbench script -->
+<script type="application/json" id="tool-config" set:html={JSON.stringify(clientConfig).replace(/</g, '\\u003c')} />
+
+<script>
+  import { buildEnvelope, envelopeToUrl } from '../../lib/hashCodec.js';
+
+  const cfg = JSON.parse(document.getElementById('tool-config').textContent);
+
+  const select = document.getElementById('template-select');
+  const statusInput = document.getElementById('status-input');
+  const delayInput = document.getElementById('delay-input');
+  const editor = document.getElementById('payload-editor');
+  const validation = document.getElementById('validation');
+  const urlBox = document.getElementById('mock-url');
+  const urlPreview = document.getElementById('url-preview');
+  const urlMeta = document.getElementById('url-meta');
+  const copyBtn = document.getElementById('copy-btn');
+  const openLink = document.getElementById('open-link');
+  const headersPreview = document.getElementById('headers-preview');
+
+  let activeHeaders = {};
+  let debounceTimer = null;
+  let exportSeq = 0; // guards against out-of-order async exports
+
+  const esc = (s) =>
+    String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+  function currentTemplate() {
+    return cfg.templates[Number(select.value)] || cfg.templates[0];
+  }
+
+  /** Live JSON validation block. Raw templates are allowed to be broken. */
+  function validate() {
+    const text = editor.value;
+    const bytes = new TextEncoder().encode(text).length;
+    try {
+      JSON.parse(text);
+      validation.className =
+        'rounded border border-mint/40 bg-mint/10 px-3 py-2 text-[11px] text-mint';
+      validation.textContent = `✓ VALID JSON — ${bytes.toLocaleString()} bytes`;
+      return true;
+    } catch (err) {
+      if (currentTemplate().raw) {
+        validation.className =
+          'rounded border border-flare/40 bg-flare/10 px-3 py-2 text-[11px] text-flare';
+        validation.textContent = `⚠ INTENTIONALLY MALFORMED — ${bytes.toLocaleString()} bytes will ship broken, as designed (${err.message})`;
+      } else {
+        validation.className =
+          'rounded border border-alert/40 bg-alert/10 px-3 py-2 text-[11px] text-alert';
+        validation.textContent = `✗ INVALID JSON — ${err.message}`;
+      }
+      return false;
+    }
+  }
+
+  function renderHeaders() {
+    const entries = Object.entries(activeHeaders);
+    headersPreview.innerHTML = entries.length
+      ? entries
+          .map(
+            ([k, v]) =>
+              `<div class="flex gap-2"><span class="shrink-0 text-neon">${esc(k)}:</span><span class="break-all">${esc(v)}</span></div>`
+          )
+          .join('')
+      : '<span class="text-dock-400">— none —</span>';
+  }
+
+  /** Automated base64 hash URL exporter. */
+  async function exportUrl() {
+    const seq = ++exportSeq;
+    const envelope = buildEnvelope({
+      status: statusInput.value,
+      delay: delayInput.value,
+      headers: activeHeaders,
+      body: editor.value,
+    });
+    try {
+      const url = await envelopeToUrl(window.location.origin, envelope);
+      if (seq !== exportSeq) return; // a newer edit already superseded this export
+      urlBox.value = url;
+      urlPreview.textContent = url;
+      urlPreview.title = url; // full URL on hover; visible text is ellipsis-clipped
+      openLink.href = url;
+      urlMeta.textContent = `${url.length.toLocaleString()} chars · deflate+base64url`;
+    } catch (err) {
+      if (seq !== exportSeq) return;
+      urlBox.value = '';
+      urlPreview.textContent = '—';
+      urlPreview.title = '';
+      urlMeta.textContent = `export failed: ${err.message}`;
+    }
+  }
+
+  function refresh() {
+    validate();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(exportUrl, 200);
+  }
+
+  function loadTemplate() {
+    const tpl = currentTemplate();
+    editor.value = tpl.body;
+    statusInput.value = tpl.status;
+    delayInput.value = tpl.delay;
+    activeHeaders = { ...tpl.headers };
+    renderHeaders();
+    refresh();
+  }
+
+  /** Functional clipboard click action, with legacy fallback. */
+  async function copyUrl() {
+    const original = copyBtn.textContent;
+    try {
+      await navigator.clipboard.writeText(urlBox.value);
+    } catch {
+      urlBox.select();
+      document.execCommand('copy');
+    }
+    copyBtn.textContent = '✓ copied';
+    setTimeout(() => {
+      copyBtn.textContent = original;
+    }, 1500);
+  }
+
+  select.addEventListener('change', loadTemplate);
+  editor.addEventListener('input', refresh);
+  statusInput.addEventListener('input', refresh);
+  delayInput.addEventListener('input', refresh);
+  copyBtn.addEventListener('click', copyUrl);
+
+  loadTemplate();
+</script>

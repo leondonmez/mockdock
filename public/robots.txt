@@ -1,0 +1,35 @@
+# robots.txt — mockdock.dev
+# Production crawl policy. The site is 100% static; the only route excluded
+# from crawling is the /api/v1 interceptor, whose URL-hash permutations are
+# infinite and carry no indexable content (also noindex,nofollow at the tag
+# level). Everything else is open for aggressive discovery.
+
+# Default policy for every crawler.
+User-agent: *
+Allow: /
+Disallow: /api/v1
+
+# Major engines — explicit allow, same exclusion. Listing them individually
+# guarantees intended behavior even if a crawler ignores the wildcard group.
+User-agent: Googlebot
+Allow: /
+Disallow: /api/v1
+
+User-agent: Googlebot-Image
+Allow: /
+Disallow: /api/v1
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/v1
+
+User-agent: Applebot
+Allow: /
+Disallow: /api/v1
+
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /api/v1
+
+# Fully-qualified sitemap for direct GSC / Bing Webmaster discovery.
+Sitemap: https://mockdock.dev/sitemap.xml

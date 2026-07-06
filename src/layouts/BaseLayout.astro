@@ -1,0 +1,99 @@
+---
+/**
+ * BaseLayout.astro — global HTML shell.
+ * Ingests per-page SEO metadata (title, description, keywords, canonical)
+ * from the pSEO dictionary and emits robots directives, OpenGraph / Twitter
+ * cards, and JSON-LD. Length + uniqueness budgets are enforced at build time
+ * by src/data/toolsDictionary.js.
+ */
+import { SITE } from '../data/toolsDictionary.js';
+import '../styles/global.css';
+
+// ── Google Search Console verification (HTML-tag method) ────────────────
+// Paste the token from GSC ("HTML tag" verification) between the quotes,
+// e.g. 'AbC123…XyZ'. Leave empty to omit the tag entirely. DNS TXT record
+// verification (preferred) is documented in GSC-VERIFICATION.md.
+const GOOGLE_SITE_VERIFICATION = '';
+
+const {
+  title = SITE.homeTitle,
+  description = SITE.homeDescription,
+  keywords = [],
+  canonicalPath = null,
+  noindex = false,
+} = Astro.props;
+
+// Self-referencing canonical: default to the current route's pathname,
+// normalized to the no-trailing-slash form (matching trailingSlash: 'never').
+const pagePath = (canonicalPath ?? Astro.url.pathname).replace(/\/+$/, '') || '/';
+const canonicalUrl = `${SITE.domain}${pagePath}`;
+const ogImageUrl = `${SITE.domain}${SITE.ogImage}`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: SITE.name,
+  url: canonicalUrl,
+  description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Any',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+---
+
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Robot directives: explicit on every page. The /api/v1 interceptor is
+         the only route that passes noindex — its hash permutations are
+         infinite and must never enter the index. -->
+    {
+      noindex ? (
+        <meta name="robots" content="noindex, nofollow" />
+      ) : (
+        <meta name="robots" content="index, follow, max-image-preview:large" />
+      )
+    }
+
+    {GOOGLE_SITE_VERIFICATION && (
+      <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
+    )}
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+    <meta name="theme-color" content="#05080f" />
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`${SITE.name} — free mock API sandbox & webhook simulator`} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </head>
+  <body class="min-h-full bg-dock-950 text-dock-200">
+    <slot />
+  </body>
+</html>

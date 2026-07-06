@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/*
+ * MockDock global theme — dark terminal console.
+ * Custom design tokens registered with Tailwind v4 so they generate
+ * utilities like bg-dock-900, text-neon, border-dock-700, etc.
+ */
+@theme {
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono",
+    Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-dock-950: #05080f;
+  --color-dock-900: #0a0f18;
+  --color-dock-850: #0d1420;
+  --color-dock-800: #101828;
+  --color-dock-700: #1b2536;
+  --color-dock-600: #2a3850;
+  --color-dock-400: #5b6b85;
+  --color-dock-300: #8b9cb8;
+  --color-dock-200: #b8c4d8;
+
+  --color-neon: #22d3ee;
+  --color-mint: #34d399;
+  --color-flare: #fbbf24;
+  --color-alert: #f87171;
+  --color-violet-glow: #a78bfa;
+}
+
+html {
+  scrollbar-color: var(--color-dock-600) var(--color-dock-950);
+}
+
+body {
+  background-color: var(--color-dock-950);
+  color: var(--color-dock-200);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-neon) 30%, transparent);
+  color: #ffffff;
+}
+
+/* Thin scrollbars for the console rails and code panes */
+.dock-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dock-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-dock-600);
+  border-radius: 3px;
+}
+.dock-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Blinking cursor used in hero + console prompts */
+@keyframes dock-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.dock-cursor::after {
+  content: "▊";
+  margin-left: 2px;
+  color: var(--color-neon);
+  animation: dock-blink 1.1s step-end infinite;
+}
+
+/* JSON syntax highlight tokens (used by the /api/v1 interceptor viewer) */
+.tok-key { color: var(--color-neon); }
+.tok-str { color: var(--color-mint); }
+.tok-num { color: var(--color-flare); }
+.tok-kw  { color: var(--color-violet-glow); }

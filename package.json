@@ -1,0 +1,21 @@
+{
+  "name": "mockdock",
+  "version": "1.0.0",
+  "description": "MockDock — free, zero-signup mock API sandbox & webhook simulator. The data lives in the URL hash.",
+  "type": "module",
+  "scripts": {
+    "sitemap": "node scripts/generate-sitemap.mjs",
+    "og": "node scripts/generate-og-card.mjs",
+    "prebuild": "node scripts/generate-sitemap.mjs",
+    "predev": "node scripts/generate-sitemap.mjs",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "astro": "^5.7.4",
+    "tailwindcss": "^4.1.4"
+  }
+}
