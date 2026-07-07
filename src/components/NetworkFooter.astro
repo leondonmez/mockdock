@@ -1,0 +1,115 @@
+---
+/**
+ * NetworkFooter.astro — global "vibs.io network" portfolio footer.
+ *
+ * Site-wide footer linking MockDock to its sibling properties. The current
+ * site (MockDock) is hardcoded as active: its card is rendered as a
+ * non-interactive element (no self-link, for clean SEO), carries a subtle
+ * active border + ring, and shows a "You are here" badge. The other two
+ * properties render as external links (new tab, rel="noopener").
+ *
+ * Uses default Tailwind `slate` utilities (which coexist with the site's
+ * custom `@theme` tokens) plus the site's cyan accent on hover to stay
+ * on-brand. Root element carries `mt-auto` so the parent flex-col layout
+ * pins it to the bottom on short pages.
+ */
+
+// The single source of truth for the network. `current: true` marks this site.
+const NETWORK = [
+  {
+    name: 'SandboxMax',
+    tagline: 'All-in-one developer sandbox & utility toolkit.',
+    url: 'https://sandboxmax.com',
+    current: false,
+  },
+  {
+    name: 'CronCrunch',
+    tagline: 'Visual cron expression generator and debugger.',
+    url: 'https://croncrunch.dev',
+    current: false,
+  },
+  {
+    name: 'MockDock',
+    tagline: 'Instant mock API endpoints and JSON hosting.',
+    url: 'https://mockdock.dev',
+    current: true, // ← this site
+  },
+];
+
+// Build-time current year for the copyright line.
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-auto border-t border-slate-800 bg-slate-950 text-slate-400">
+  <div class="mx-auto max-w-6xl px-4 py-10 sm:px-8">
+    <p class="mb-5 text-[11px] uppercase tracking-[0.25em] text-slate-500">
+      The <span class="text-slate-300">vibs.io</span> network
+    </p>
+
+    <!-- 1 column on mobile → 3 columns on desktop -->
+    <ul class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {
+        NETWORK.map((site) =>
+          site.current ? (
+            <li>
+              <div
+                aria-current="page"
+                class="relative flex h-full cursor-default flex-col rounded-lg border border-cyan-500/40 bg-slate-900 p-5 ring-1 ring-cyan-500/20"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-bold text-slate-100">{site.name}</h3>
+                  <span class="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+                    You are here
+                  </span>
+                </div>
+                <p class="mt-2 text-xs leading-relaxed text-slate-400">{site.tagline}</p>
+              </div>
+            </li>
+          ) : (
+            <li>
+              <a
+                href={site.url}
+                target="_blank"
+                rel="noopener"
+                class="group relative flex h-full flex-col rounded-lg border border-slate-800 bg-slate-900/40 p-5 transition-colors duration-200 hover:border-cyan-500/50 hover:bg-slate-900"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-bold text-slate-200 transition-colors group-hover:text-cyan-400">
+                    {site.name}
+                  </h3>
+                  <span
+                    aria-hidden="true"
+                    class="shrink-0 text-xs text-slate-600 transition-colors group-hover:text-cyan-400"
+                  >
+                    ↗
+                  </span>
+                </div>
+                <p class="mt-2 text-xs leading-relaxed text-slate-400 transition-colors group-hover:text-slate-300">
+                  {site.tagline}
+                </p>
+              </a>
+            </li>
+          )
+        )
+      }
+    </ul>
+
+    <!-- Sub-footer: copyright (left) + studio signature (right) -->
+    <div
+      class="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-800/70 pt-6 text-[11px] text-slate-500 sm:flex-row"
+    >
+      <p>© {year} MockDock. All rights reserved.</p>
+      <p>
+        A product of
+        <a
+          href="https://vibs.io"
+          target="_blank"
+          rel="noopener"
+          class="text-slate-400 underline-offset-4 transition-colors hover:text-cyan-400 hover:underline"
+        >
+          vibs.io
+        </a>
+      </p>
+    </div>
+  </div>
+</footer>
