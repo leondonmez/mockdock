@@ -1,0 +1,32 @@
+---
+/**
+ * RelatedTools.astro — contextual cross-linking section.
+ * Renders the 3 most keyword-adjacent sibling tools (computed at build time
+ * from the pSEO dictionary) with descriptive "Name — tagline" anchors.
+ */
+import { relatedTools } from '../data/toolsDictionary.js';
+
+const { slug } = Astro.props;
+const related = relatedTools(slug, 3);
+---
+
+{
+  related.length > 0 && (
+    <section class="mt-6" aria-label="Related tools">
+      <h2 class="text-[10px] uppercase tracking-[0.2em] text-dock-400">ln -s ./related-tools</h2>
+      <ul class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {related.map((t) => (
+          <li>
+            <a
+              href={t.href}
+              class="group block h-full rounded-lg border border-dock-700 bg-dock-900 p-3 transition-colors hover:border-neon/60 hover:bg-dock-850"
+            >
+              <span class="block text-xs font-bold text-dock-200 group-hover:text-neon">{t.name}</span>
+              <span class="mt-1 block text-[11px] leading-relaxed text-dock-300">{t.tagline}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

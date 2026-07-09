@@ -1,0 +1,411 @@
+---
+/**
+ * tools/schema-to-mock.astro — Schema-to-Mock Data Simulator.
+ *
+ * Paste raw JSON (or a cURL skeleton carrying a JSON body) and get
+ * contextually randomized mock data matching the exact same structure.
+ * 100% client-side, deterministic key-context engine, zero mock libraries,
+ * zero runtime network calls. The "Generate Live Mock Endpoint (Supabase)"
+ * action is a local stub: it stages the payload shape we will later persist
+ * for SSR edge routing — it does NOT talk to any server today.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ConsoleShell from '../../components/ConsoleShell.astro';
+import RelatedTools from '../../components/RelatedTools.astro';
+import { getLabTool } from '../../data/toolsDictionary.js';
+
+const tool = getLabTool('schema-to-mock');
+
+// Sample schema is server-rendered into the textarea so crawlers see real
+// payload text; the same string ships in a JSON island for the client's
+// "load sample" reset button.
+const SAMPLE_SCHEMA = {
+  order_id: 1001,
+  uuid: '00000000-0000-0000-0000-000000000000',
+  customer: {
+    first_name: 'Jane',
+    last_name: 'Doe',
+    email: 'jane@corp.com',
+    is_verified: true,
+  },
+  items: [{ sku: 'ABC-123', product_name: 'Widget', unit_price: 19.99, quantity: 2 }],
+  total_amount: 39.98,
+  created_at: '2026-01-01T00:00:00Z',
+  status: 'pending',
+};
+const sampleText = JSON.stringify(SAMPLE_SCHEMA, null, 2);
+---
+
+<BaseLayout
+  title={tool.title}
+  description={tool.description}
+  keywords={tool.keywords}
+  canonicalPath={tool.path}
+  toolName={tool.name}
+>
+  <ConsoleShell activeSlug={tool.slug}>
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+      <!-- Tool header -->
+      <header>
+        <p class="text-[11px] text-dock-400">
+          <a href="/" class="hover:text-neon">~/tools</a>
+          <span class="mx-1">/</span>
+          <span class="text-neon">schema-to-mock</span>
+        </p>
+        <h1 class="mt-2 text-xl font-bold tracking-tight text-white sm:text-2xl">
+          Schema-to-Mock Data Simulator
+        </h1>
+        <p class="mt-3 max-w-3xl text-xs leading-relaxed text-dock-300 sm:text-sm">
+          Feed it the shape — a raw JSON object or a cURL command with a JSON body — and it walks
+          every key, infers intent from the key names, and emits realistic randomized data in the
+          identical structure. No faker, no API, no LLM: a few hundred bytes of deterministic
+          key-context rules running entirely in your browser.
+        </p>
+      </header>
+
+      <!-- Two-column workbench -->
+      <section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Schema to mock workbench">
+        <!-- Left: input -->
+        <div class="flex flex-col rounded-lg border border-dock-700 bg-dock-900">
+          <div class="flex items-center justify-between border-b border-dock-700 px-4 py-2">
+            <span class="text-[11px] uppercase tracking-[0.15em] text-dock-400">input — json or curl</span>
+            <button
+              id="sample-btn"
+              type="button"
+              aria-label="Load a sample JSON schema"
+              class="rounded border border-dock-600 px-2 py-1 text-[10px] text-dock-300 transition-colors hover:border-neon/60 hover:text-neon"
+            >
+              ⟲ load sample
+            </button>
+          </div>
+          <div class="flex flex-1 flex-col gap-3 p-4">
+            <textarea
+              id="schema-input"
+              rows="20"
+              spellcheck="false"
+              aria-label="Raw JSON object or cURL command input"
+              placeholder={'{\n  "order_id": 1001,\n  "customer_email": "x@y.com"\n}\n\n— or —\n\ncurl -X POST https://api.example.com/orders -d \'{"total_price": 10}\''}
+              class="dock-scroll w-full flex-1 resize-y rounded border border-dock-600 bg-dock-950 p-3 text-xs leading-relaxed text-dock-200 placeholder:text-dock-400/60 focus:border-neon focus:outline-none"
+            >{sampleText}</textarea>
+            <p
+              id="parse-status"
+              role="status"
+              aria-live="polite"
+              class="rounded border border-dock-700 bg-dock-950 px-3 py-2 text-[11px] text-dock-400"
+            >
+              — waiting for input —
+            </p>
+          </div>
+        </div>
+
+        <!-- Right: output -->
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-1 flex-col rounded-lg border border-dock-700 bg-dock-900">
+            <div class="flex items-center justify-between border-b border-dock-700 px-4 py-2">
+              <span class="text-[11px] uppercase tracking-[0.15em] text-dock-400">randomized mock output</span>
+              <div class="flex items-center gap-2">
+                <button
+                  id="reroll-btn"
+                  type="button"
+                  aria-label="Re-randomize the mock data"
+                  class="rounded border border-dock-600 px-2 py-1 text-[10px] text-dock-300 transition-colors hover:border-mint/60 hover:text-mint"
+                >
+                  ↻ reroll
+                </button>
+                <button
+                  id="copy-mock-btn"
+                  type="button"
+                  aria-label="Copy mock JSON to clipboard"
+                  class="rounded border border-neon/50 bg-neon/10 px-2 py-1 text-[10px] font-bold text-neon transition-colors hover:bg-neon/20 focus:outline-none focus:ring-1 focus:ring-neon"
+                >
+                  ⧉ copy
+                </button>
+              </div>
+            </div>
+            <pre
+              id="mock-output"
+              aria-label="Generated mock JSON"
+              class="dock-scroll min-h-[22rem] flex-1 overflow-auto p-4 text-xs leading-relaxed text-dock-200">// mock data will appear here</pre>
+          </div>
+
+          <!-- Live endpoint stub -->
+          <div class="rounded-lg border border-dock-700 bg-dock-900 p-4">
+            <button
+              id="endpoint-btn"
+              type="button"
+              disabled
+              aria-disabled="true"
+              aria-label="Generate live mock endpoint (Supabase) — live endpoints coming soon"
+              class="w-full cursor-not-allowed rounded border border-dock-600 bg-dock-850 px-4 py-2.5 text-xs font-bold text-dock-400 opacity-70 focus:outline-none"
+            >
+              ▲ Generate Live Mock Endpoint (Supabase)
+              <span class="ml-1 font-normal text-dock-400">(Live endpoints coming soon)</span>
+            </button>
+            <p id="endpoint-status" role="status" aria-live="polite" class="mt-2 text-[10px] leading-relaxed text-dock-400">
+              Persistent live endpoints backed by Supabase SSR edge routing are under development.
+              Everything else on this page is fully functional and runs entirely in your browser.
+            </p>
+            <pre
+              id="staged-output"
+              class="dock-scroll mt-3 hidden max-h-56 overflow-auto rounded border border-dock-700 bg-dock-950 p-3 text-[11px] leading-relaxed text-dock-300"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contextual internal link graph -->
+      <RelatedTools slug={tool.slug} />
+    </div>
+  </ConsoleShell>
+</BaseLayout>
+
+<!-- Sample schema island — same string the SSR textarea ships with -->
+<script type="application/json" id="sample-schema" set:html={JSON.stringify(sampleText).replace(/</g, '\\u003c')} />
+
+<script>
+  /* ── Schema-to-Mock engine — pure client-side, zero dependencies ────── */
+
+  const input = document.getElementById('schema-input') as HTMLTextAreaElement;
+  const parseStatus = document.getElementById('parse-status') as HTMLParagraphElement;
+  const output = document.getElementById('mock-output') as HTMLPreElement;
+  const copyBtn = document.getElementById('copy-mock-btn') as HTMLButtonElement;
+  const rerollBtn = document.getElementById('reroll-btn') as HTMLButtonElement;
+  const sampleBtn = document.getElementById('sample-btn') as HTMLButtonElement;
+  const endpointBtn = document.getElementById('endpoint-btn') as HTMLButtonElement;
+  const endpointStatus = document.getElementById('endpoint-status') as HTMLParagraphElement;
+  const stagedOutput = document.getElementById('staged-output') as HTMLPreElement;
+
+  /* Small static pools — intentionally tiny to keep the bundle featherweight. */
+  const FIRST_NAMES = ['Ada', 'Grace', 'Alan', 'Katherine', 'Linus', 'Margaret', 'Dennis', 'Radia'];
+  const LAST_NAMES = ['Lovelace', 'Hopper', 'Turing', 'Johnson', 'Hamilton', 'Ritchie', 'Perlman', 'Torvalds'];
+  const WORDS = ['atlas', 'ember', 'quartz', 'nimbus', 'vector', 'cobalt', 'signal', 'drift', 'lumen', 'orbit'];
+
+  const rand = (n: number) => Math.floor(Math.random() * n);
+  const pick = <T,>(arr: T[]): T => arr[rand(arr.length)];
+  const randInt = (min: number, max: number) => min + rand(max - min + 1);
+  const randPrice = () => Number((5 + Math.random() * 145).toFixed(2)); // 5.00 – 150.00
+
+  /** ISO timestamp within ±36 hours of now. */
+  function isoNearNow(): string {
+    const jitter = (Math.random() - 0.5) * 72 * 3600 * 1000;
+    return new Date(Date.now() + jitter).toISOString();
+  }
+
+  function randomEmail(): string {
+    const name = pick(FIRST_NAMES).toLowerCase() + '.' + pick(LAST_NAMES).toLowerCase();
+    return `${name}${randInt(1, 99)}@example.com`;
+  }
+
+  /* ── Key-context classifier ──────────────────────────────────────────
+   * Word-aware matching: `userId`, `order_id`, `id` hit the id rule, but
+   * `valid` / `video` do not. Order matters — most specific first.
+   */
+  const isUuidKey = (k: string) => /uuid|guid/i.test(k);
+  const isIdKey = (k: string, raw: string) =>
+    k === 'id' || k.endsWith('_id') || k.endsWith('-id') || /[a-z]Id$/.test(raw);
+  const isEmailKey = (k: string) => k.includes('email') || k.includes('e-mail');
+  const isDateKey = (k: string) =>
+    /date|created|updated|timestamp/.test(k) || k.endsWith('_at') || /[a-z]At$/.test(k);
+  const isMoneyKey = (k: string) => /amount|price|cost|total|fee/.test(k);
+  const isNameKey = (k: string) => /name|first|last/.test(k);
+
+  let idCounter = 1000; // incrementing-integer strategy for numeric id keys
+
+  /** Contextual value for a string field, driven by its key. */
+  function contextualString(rawKey: string): string | null {
+    const k = rawKey.toLowerCase();
+    if (isUuidKey(k)) return crypto.randomUUID();
+    if (isIdKey(k, rawKey)) return crypto.randomUUID().slice(0, 8);
+    if (isEmailKey(k)) return randomEmail();
+    if (isDateKey(k)) return isoNearNow();
+    if (isMoneyKey(k)) return randPrice().toFixed(2);
+    if (isNameKey(k)) {
+      if (/first/.test(k)) return pick(FIRST_NAMES);
+      if (/last/.test(k)) return pick(LAST_NAMES);
+      return `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    }
+    return null; // no context — caller falls back to generic string
+  }
+
+  /** Recursively mock any value, preserving the input's exact structure. */
+  function mockValue(value: unknown, key = ''): unknown {
+    if (value === null || value === undefined) return null;
+
+    if (Array.isArray(value)) {
+      // Repeat the internal pattern 2–4 times, templating off the first item.
+      if (value.length === 0) return [];
+      const template = value[0];
+      const count = randInt(2, 4);
+      return Array.from({ length: count }, () => mockValue(template, key));
+    }
+
+    if (typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        out[k] = mockValue(v, k);
+      }
+      return out;
+    }
+
+    const rawKey = key;
+    const k = key.toLowerCase();
+
+    if (typeof value === 'number') {
+      if (isIdKey(k, rawKey) || isUuidKey(k)) return ++idCounter;
+      if (isMoneyKey(k)) return randPrice();
+      if (isDateKey(k)) return Math.floor(Date.now() / 1000) + randInt(-86400, 86400); // unix-ish
+      if (Number.isInteger(value)) {
+        const ceil = Math.max(10, Math.abs(value) * 2);
+        return randInt(0, ceil);
+      }
+      return Number((Math.random() * Math.max(1, Math.abs(value) * 2)).toFixed(2));
+    }
+
+    if (typeof value === 'boolean') return Math.random() < 0.5;
+
+    if (typeof value === 'string') {
+      const ctx = contextualString(rawKey);
+      if (ctx !== null) return ctx;
+      // Generic string: keep it short and vaguely word-like.
+      return `${pick(WORDS)}-${pick(WORDS)}`;
+    }
+
+    return value;
+  }
+
+  /* ── Input parsing: raw JSON or a cURL skeleton ─────────────────────── */
+
+  /** Pull the JSON body out of a curl command (-d / --data / --data-raw / --data-binary). */
+  function extractCurlBody(text: string): string | null {
+    const flag = /(?:--data-raw|--data-binary|--data|-d)\s+(?:\$?'([\s\S]*?)'|"([\s\S]*?)")/m.exec(text);
+    if (flag) return flag[1] ?? flag[2];
+    // Unquoted single-token body, e.g. -d {"a":1}
+    const bare = /(?:--data|-d)\s+(\{[\s\S]*\})/m.exec(text);
+    return bare ? bare[1] : null;
+  }
+
+  type ParseResult = { ok: true; data: unknown; source: 'json' | 'curl' } | { ok: false; error: string };
+
+  function parseInput(text: string): ParseResult {
+    const trimmed = text.trim();
+    if (!trimmed) return { ok: false, error: 'empty input' };
+
+    if (/^curl(\s|$)/i.test(trimmed)) {
+      const body = extractCurlBody(trimmed);
+      if (!body) return { ok: false, error: 'cURL detected, but no -d / --data JSON body found' };
+      try {
+        return { ok: true, data: JSON.parse(body), source: 'curl' };
+      } catch (e) {
+        return { ok: false, error: `cURL body is not valid JSON — ${(e as Error).message}` };
+      }
+    }
+
+    try {
+      return { ok: true, data: JSON.parse(trimmed), source: 'json' };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+
+  /* ── Wiring ──────────────────────────────────────────────────────────── */
+
+  let lastTemplate: unknown = null; // structural template (the parsed input)
+  let lastMock: unknown = null;
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function setStatus(kind: 'ok' | 'err' | 'idle', msg: string) {
+    const base = 'rounded border px-3 py-2 text-[11px] ';
+    if (kind === 'ok') parseStatus.className = base + 'border-mint/40 bg-mint/10 text-mint';
+    else if (kind === 'err') parseStatus.className = base + 'border-alert/40 bg-alert/10 text-alert';
+    else parseStatus.className = base + 'border-dock-700 bg-dock-950 text-dock-400';
+    parseStatus.textContent = msg;
+  }
+
+  function generate() {
+    const result = parseInput(input.value);
+    if (!result.ok) {
+      lastTemplate = null;
+      lastMock = null;
+      output.textContent = '// fix the input to generate mock data';
+      setStatus(input.value.trim() ? 'err' : 'idle', input.value.trim() ? `✗ ${result.error}` : '— waiting for input —');
+      return;
+    }
+    lastTemplate = result.data;
+    lastMock = mockValue(result.data);
+    output.textContent = JSON.stringify(lastMock, null, 2);
+    const keys = JSON.stringify(result.data).match(/"[^"]+":/g)?.length ?? 0;
+    setStatus('ok', `✓ parsed ${result.source === 'curl' ? 'cURL JSON body' : 'raw JSON'} — ${keys} keys mocked`);
+    // Reset any previously staged endpoint, since the schema changed.
+    stagedOutput.classList.add('hidden');
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(generate, 250);
+  });
+
+  rerollBtn.addEventListener('click', () => {
+    if (lastTemplate === null) return;
+    lastMock = mockValue(lastTemplate);
+    output.textContent = JSON.stringify(lastMock, null, 2);
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    if (lastMock === null) return;
+    const text = JSON.stringify(lastMock, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(output);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      document.execCommand('copy');
+      sel?.removeAllRanges();
+    }
+    const original = copyBtn.textContent;
+    copyBtn.textContent = '✓ copied';
+    setTimeout(() => (copyBtn.textContent = original), 1500);
+  });
+
+  /* Live-endpoint stub: assemble the exact payload we will eventually POST
+     to a Supabase table for SSR edge routing. Local-only — no network. */
+  endpointBtn.addEventListener('click', () => {
+    if (lastTemplate === null) {
+      endpointStatus.textContent = '✗ nothing staged — paste a valid schema first.';
+      return;
+    }
+    const endpointId = crypto.randomUUID();
+    const payload = {
+      endpoint_id: endpointId,
+      slug: `live-${endpointId.slice(0, 8)}`,
+      schema_template: lastTemplate,
+      seed_response: lastMock,
+      routing: {
+        target: 'supabase',
+        table: 'live_mock_endpoints',
+        mode: 'ssr-edge',
+        status: 'staged-local',
+      },
+      created_at: new Date().toISOString(),
+      version: 1,
+    };
+    stagedOutput.textContent = JSON.stringify(payload, null, 2);
+    stagedOutput.classList.remove('hidden');
+    endpointStatus.textContent =
+      `⧗ staged endpoint ${payload.slug} locally — Supabase persistence is not wired yet; no request was sent.`;
+  });
+
+  // Sample text is server-rendered into the textarea; the island carries the
+  // same string so "load sample" can restore it after edits.
+  const SAMPLE_TEXT = JSON.parse(document.getElementById('sample-schema')!.textContent!) as string;
+
+  sampleBtn.addEventListener('click', () => {
+    input.value = SAMPLE_TEXT;
+    generate();
+  });
+
+  // The textarea already holds the sample from static HTML — hydrate the
+  // output pane from it without rewriting the input (zero layout shift).
+  generate();
+</script>

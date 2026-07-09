@@ -11,6 +11,7 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ConsoleShell from '../../components/ConsoleShell.astro';
+import RelatedTools from '../../components/RelatedTools.astro';
 import { TOOLS } from '../../data/toolsDictionary.js';
 
 export function getStaticPaths() {
@@ -34,6 +35,12 @@ const clientConfig = {
     body: t.raw ? t.body : JSON.stringify(t.body, null, 2),
   })),
 };
+
+// First preset pre-rendered into the static HTML so crawlers see real sample
+// payload text. The client boot (loadTemplate) writes the exact same strings
+// back, so hydration is a zero-shift no-op.
+const bootTemplate = clientConfig.templates[0];
+const bootHeaders = Object.entries(bootTemplate.headers);
 ---
 
 <BaseLayout
@@ -41,6 +48,7 @@ const clientConfig = {
   description={tool.description}
   keywords={tool.keywords}
   canonicalPath={`/mock/${tool.slug}`}
+  toolName={tool.name}
 >
   <ConsoleShell activeSlug={tool.slug}>
     <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
@@ -84,6 +92,7 @@ const clientConfig = {
                   type="number"
                   min="100"
                   max="599"
+                  value={bootTemplate.status}
                   aria-label="Simulated HTTP status code"
                   class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
                 />
@@ -96,6 +105,7 @@ const clientConfig = {
                   min="0"
                   max="60000"
                   step="100"
+                  value={bootTemplate.delay}
                   aria-label="Simulated network latency in milliseconds"
                   class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
                 />
@@ -110,7 +120,7 @@ const clientConfig = {
                 spellcheck="false"
                 aria-label="Mock response body — live JSON editor"
                 class="dock-scroll w-full flex-1 resize-y rounded border border-dock-600 bg-dock-950 p-3 text-xs leading-relaxed text-dock-200 focus:border-neon focus:outline-none"
-              ></textarea>
+              >{bootTemplate.body}</textarea>
             </label>
 
             <!-- Live validation block -->
@@ -170,7 +180,16 @@ const clientConfig = {
             <div class="border-b border-dock-700 px-4 py-2 text-[11px] uppercase tracking-[0.15em] text-dock-400">
               simulated response headers
             </div>
-            <div id="headers-preview" class="dock-scroll overflow-x-auto p-4 text-[11px] leading-relaxed text-dock-300"></div>
+            <div id="headers-preview" class="dock-scroll overflow-x-auto p-4 text-[11px] leading-relaxed text-dock-300">
+              {
+                bootHeaders.map(([k, v]) => (
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-neon">{k}:</span>
+                    <span class="break-all">{v}</span>
+                  </div>
+                ))
+              }
+            </div>
           </div>
 
           <div class="rounded-lg border border-dock-700 bg-dock-900 p-4 text-[11px] leading-relaxed text-dock-400">
@@ -185,17 +204,27 @@ const clientConfig = {
         </div>
       </section>
 
-      <!-- pSEO keyword targets -->
+      <!-- pSEO keyword targets — chips link to the browsable tool index -->
       <section class="mt-6" aria-label="Related searches">
         <h2 class="text-[10px] uppercase tracking-[0.2em] text-dock-400">grep -i related-searches</h2>
         <ul class="mt-2 flex flex-wrap gap-2">
           {
             tool.keywords.map((kw) => (
-              <li class="rounded border border-dock-700 bg-dock-900 px-2 py-1 text-[11px] text-dock-300">{kw}</li>
+              <li>
+                <a
+                  href="/#tools"
+                  class="block rounded border border-dock-700 bg-dock-900 px-2 py-1 text-[11px] text-dock-300 transition-colors hover:border-neon/60 hover:text-neon"
+                >
+                  {kw}
+                </a>
+              </li>
             ))
           }
         </ul>
       </section>
+
+      <!-- Contextual internal link graph -->
+      <RelatedTools slug={tool.slug} />
     </div>
   </ConsoleShell>
 </BaseLayout>

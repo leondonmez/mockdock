@@ -23,7 +23,7 @@ export const SITE = {
   tagline: 'Free mock API sandbox & webhook simulator. No signup. No server. The data is in the URL.',
   homeTitle: 'MockDock — Free Mock API Sandbox & Webhook Simulator',
   homeDescription:
-    '12 free tools to mock APIs and webhooks: Stripe and Shopify events, fake REST endpoints, JWT claims, CORS and latency — no signup, no server.',
+    '14 free tools to mock APIs and webhooks: Stripe and Shopify events, fake REST endpoints, JWT claims, CORS and latency — no signup, no server.',
   homeKeywords: [
     'mock api sandbox free',
     'webhook simulator online',
@@ -982,9 +982,105 @@ export const TOOLS = [
   },
 ];
 
+/* ── Lab tools ───────────────────────────────────────────────────────────
+ * Custom-built tool pages that live outside the /mock/[slug] template matrix
+ * (they ship their own bespoke UI under /tools/). They join TOOLS in the nav
+ * rail, home grid, and sitemap, but are NOT statically generated from the
+ * template workbench.
+ */
+export const LAB_TOOLS = [
+  {
+    slug: 'schema-to-mock',
+    path: '/tools/schema-to-mock',
+    name: 'Schema-to-Mock Simulator',
+    navLabel: 'schema-to-mock',
+    tagline: 'Paste JSON or cURL — get randomized mock data in the same shape.',
+    title: 'Schema to Mock Data Generator — JSON & cURL | MockDock',
+    description:
+      'Paste raw JSON or a cURL command and instantly generate realistic randomized mock data matching that exact structure. Free, client-side, no signup.',
+    keywords: [
+      'json schema to mock data',
+      'generate mock data from json',
+      'curl to mock response',
+      'fake data generator no faker',
+      'random test data from schema',
+    ],
+  },
+  {
+    slug: 'webhook-emulator',
+    path: '/tools/webhook-emulator',
+    name: 'Webhook Header Emulator',
+    navLabel: 'webhook-signer',
+    tagline: 'Compute Stripe, GitHub & HMAC-SHA256 signature headers locally.',
+    title: 'Webhook Signature Generator — Stripe & GitHub | MockDock',
+    description:
+      'Compute exact webhook signature headers in your browser: Stripe stripe-signature, GitHub x-hub-signature-256 and generic HMAC-SHA256. Free, no tokens.',
+    keywords: [
+      'stripe signature header generator',
+      'x-hub-signature-256 generator',
+      'webhook hmac sha256 calculator',
+      'test webhook signature locally',
+      'github webhook secret signature',
+    ],
+  },
+];
+
+/** Every navigable tool (template matrix + lab), with resolved hrefs. */
+export function allNavTools() {
+  return [
+    ...TOOLS.map((t) => ({ ...t, href: `/mock/${t.slug}` })),
+    ...LAB_TOOLS.map((t) => ({ ...t, href: t.path })),
+  ];
+}
+
 /** Look up a tool by slug. */
 export function getTool(slug) {
   return TOOLS.find((t) => t.slug === slug) ?? null;
+}
+
+/** Look up a lab tool by slug. */
+export function getLabTool(slug) {
+  return LAB_TOOLS.find((t) => t.slug === slug) ?? null;
+}
+
+/* ── Contextual relatedness (internal link graph) ────────────────────────
+ * Scores sibling tools by shared significant tokens across name + tagline +
+ * keywords, ignoring platform-wide stopwords that appear on every tool.
+ * Deterministic: stable sort keeps dictionary order on ties.
+ */
+const RELATED_STOPWORDS = new Set([
+  'mock', 'mocks', 'mocking', 'mocker', 'api', 'apis', 'free', 'online',
+  'json', 'test', 'testing', 'tool', 'tools', 'generator', 'simulator',
+  'response', 'responses', 'data', 'example', 'sample', 'the', 'and', 'for',
+  'with', 'without', 'from', 'your', 'no',
+]);
+
+function significantTokens(tool) {
+  const text = [tool.name, tool.tagline, ...(tool.keywords ?? [])].join(' ').toLowerCase();
+  return new Set(
+    text
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2 && !RELATED_STOPWORDS.has(w))
+      .map((w) => w.replace(/s$/, '')) // light stemming: token/tokens, webhook/webhooks
+  );
+}
+
+/** The `count` most keyword-adjacent sibling tools for a given slug. */
+export function relatedTools(slug, count = 3) {
+  const all = allNavTools();
+  const self = all.find((t) => t.slug === slug);
+  if (!self) return [];
+  const selfTokens = significantTokens(self);
+  return all
+    .filter((t) => t.slug !== slug)
+    .map((t) => {
+      let score = 0;
+      for (const w of significantTokens(t)) if (selfTokens.has(w)) score++;
+      return { tool: t, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count)
+    .map((x) => x.tool);
 }
 
 /* ── pSEO guardrails ─────────────────────────────────────────────────────
@@ -998,6 +1094,7 @@ function assertSeoInvariants() {
   const entries = [
     { slug: '__home__', title: SITE.homeTitle, description: SITE.homeDescription },
     ...TOOLS,
+    ...LAB_TOOLS,
   ];
   for (const { slug, title, description } of entries) {
     if (title.length > TITLE_MAX) {

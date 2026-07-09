@@ -32,7 +32,7 @@ const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http:/
   <text x="68" y="420" font-family="ui-monospace, Menlo, monospace" font-size="76" font-weight="700" fill="#ffffff">Simulate any webhook.</text>
   <text x="68" y="500" font-family="ui-monospace, Menlo, monospace" font-size="76" font-weight="700" fill="#22d3ee">The data is in the URL.</text>
 
-  <text x="70" y="575" font-family="ui-monospace, Menlo, monospace" font-size="30" fill="#8b9cb8">12 free tools · no server · no database · shareable mock URLs</text>
+  <text x="70" y="575" font-family="ui-monospace, Menlo, monospace" font-size="30" fill="#8b9cb8">14 free tools · no server · no database · shareable mock URLs</text>
 
   <text x="1130" y="80" text-anchor="end" font-family="ui-monospace, Menlo, monospace" font-size="30" fill="#34d399">mockdock.dev</text>
 </svg>`;

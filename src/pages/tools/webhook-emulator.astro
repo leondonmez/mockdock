@@ -1,0 +1,360 @@
+---
+/**
+ * tools/webhook-emulator.astro — Webhook Cryptographic Header Emulator.
+ *
+ * Token-free utility that computes the exact signature headers third-party
+ * webhook providers attach to their requests — Stripe (stripe-signature),
+ * GitHub (x-hub-signature-256), or generic HMAC-SHA256 — so a local endpoint
+ * can be tested with curl/Postman without any provider account or secret
+ * exchange. All hashing runs on the native Web Crypto API (crypto.subtle):
+ * zero dependencies, zero server roundtrips, nothing leaves the browser.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ConsoleShell from '../../components/ConsoleShell.astro';
+import RelatedTools from '../../components/RelatedTools.astro';
+import { getLabTool } from '../../data/toolsDictionary.js';
+
+const tool = getLabTool('webhook-emulator');
+
+// Demonstrative sample server-rendered into the form so crawlers see real
+// payload text; the client boot signs it in place without rewriting inputs.
+const SAMPLE_SECRET = 'whsec_test_secret';
+const samplePayload = JSON.stringify(
+  {
+    id: 'evt_1PXaK2LkdIwHu7ixVp2qzLbT',
+    type: 'invoice.paid',
+    data: { object: { id: 'in_1PXaJy', amount_paid: 2900, currency: 'usd' } },
+  },
+  null,
+  2
+);
+---
+
+<BaseLayout
+  title={tool.title}
+  description={tool.description}
+  keywords={tool.keywords}
+  canonicalPath={tool.path}
+  toolName={tool.name}
+>
+  <ConsoleShell activeSlug={tool.slug}>
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+      <!-- Tool header -->
+      <header>
+        <p class="text-[11px] text-dock-400">
+          <a href="/" class="hover:text-neon">~/tools</a>
+          <span class="mx-1">/</span>
+          <span class="text-neon">webhook-emulator</span>
+        </p>
+        <h1 class="mt-2 text-xl font-bold tracking-tight text-white sm:text-2xl">
+          Webhook Cryptographic Header Emulator
+        </h1>
+        <p class="mt-3 max-w-3xl text-xs leading-relaxed text-dock-300 sm:text-sm">
+          Webhook handlers reject anything without a valid signature — which makes local testing
+          miserable without real provider secrets. Pick a provider, paste any secret and payload,
+          and get the exact signature headers computed the way Stripe, GitHub, or any HMAC-SHA256
+          service computes them. Native <code class="text-mint">crypto.subtle</code> only: your
+          secret never leaves this page.
+        </p>
+      </header>
+
+      <!-- Workbench -->
+      <section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Signature workbench">
+        <!-- Left: inputs -->
+        <div class="flex flex-col rounded-lg border border-dock-700 bg-dock-900">
+          <div class="border-b border-dock-700 px-4 py-2 text-[11px] uppercase tracking-[0.15em] text-dock-400">
+            sign request
+          </div>
+          <div class="flex flex-1 flex-col gap-3 p-4">
+            <label class="block text-[11px] text-dock-300">
+              <span class="mb-1 block">service / signature scheme</span>
+              <select
+                id="service-select"
+                aria-label="Select webhook service signature scheme"
+                class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 focus:border-neon focus:outline-none"
+              >
+                <option value="stripe">Stripe (stripe-signature)</option>
+                <option value="github">GitHub (x-hub-signature-256)</option>
+                <option value="generic">Generic HMAC-SHA256</option>
+              </select>
+            </label>
+
+            <label class="block text-[11px] text-dock-300">
+              <span class="mb-1 block">secret key</span>
+              <input
+                id="secret-input"
+                type="text"
+                spellcheck="false"
+                autocomplete="off"
+                value={SAMPLE_SECRET}
+                aria-label="Webhook signing secret key"
+                placeholder="whsec_… / any shared secret"
+                class="w-full rounded border border-dock-600 bg-dock-950 px-2 py-2 text-xs text-dock-200 placeholder:text-dock-400/60 focus:border-neon focus:outline-none"
+              />
+            </label>
+
+            <label class="flex flex-1 flex-col text-[11px] text-dock-300">
+              <span class="mb-1 block">raw webhook payload — JSON</span>
+              <textarea
+                id="payload-input"
+                rows="14"
+                spellcheck="false"
+                aria-label="Raw webhook JSON payload to sign"
+                class="dock-scroll w-full flex-1 resize-y rounded border border-dock-600 bg-dock-950 p-3 text-xs leading-relaxed text-dock-200 focus:border-neon focus:outline-none"
+              >{samplePayload}</textarea>
+            </label>
+
+            <p
+              id="sign-status"
+              role="status"
+              aria-live="polite"
+              class="rounded border border-dock-700 bg-dock-950 px-3 py-2 text-[11px] text-dock-400"
+            >
+              — enter a secret to sign —
+            </p>
+          </div>
+        </div>
+
+        <!-- Right: outputs -->
+        <div class="flex flex-col gap-4">
+          <div class="rounded-lg border border-dock-700 bg-dock-900">
+            <div class="flex items-center justify-between border-b border-dock-700 px-4 py-2">
+              <span class="text-[11px] uppercase tracking-[0.15em] text-dock-400">request headers</span>
+              <button
+                id="copy-headers-btn"
+                type="button"
+                aria-label="Copy request headers to clipboard"
+                class="rounded border border-neon/50 bg-neon/10 px-2 py-1 text-[10px] font-bold text-neon transition-colors hover:bg-neon/20 focus:outline-none focus:ring-1 focus:ring-neon"
+              >
+                ⧉ copy headers
+              </button>
+            </div>
+            <div
+              id="headers-output"
+              class="dock-scroll min-h-[8rem] overflow-x-auto p-4 text-xs leading-relaxed text-dock-200"
+            >
+              <span class="text-dock-400">// signature headers will appear here</span>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-dock-700 bg-dock-900">
+            <div class="flex items-center justify-between border-b border-dock-700 px-4 py-2">
+              <span class="text-[11px] uppercase tracking-[0.15em] text-dock-400">ready-to-fire curl</span>
+              <div class="flex items-center gap-2">
+                <input
+                  id="target-url"
+                  type="text"
+                  spellcheck="false"
+                  value="http://localhost:3000/webhook"
+                  aria-label="Target endpoint URL for the curl command"
+                  class="w-48 rounded border border-dock-600 bg-dock-950 px-2 py-1 text-[10px] text-dock-200 focus:border-neon focus:outline-none"
+                />
+                <button
+                  id="copy-curl-btn"
+                  type="button"
+                  aria-label="Copy curl command to clipboard"
+                  class="rounded border border-neon/50 bg-neon/10 px-2 py-1 text-[10px] font-bold text-neon transition-colors hover:bg-neon/20 focus:outline-none focus:ring-1 focus:ring-neon"
+                >
+                  ⧉ copy curl
+                </button>
+              </div>
+            </div>
+            <pre
+              id="curl-output"
+              aria-label="Generated curl command"
+              class="dock-scroll max-h-64 overflow-auto p-4 text-[11px] leading-relaxed text-dock-300">// curl command will appear here</pre>
+          </div>
+
+          <div class="rounded-lg border border-dock-700 bg-dock-900 p-4 text-[11px] leading-relaxed text-dock-400">
+            <p class="text-dock-300">$ man signature-schemes</p>
+            <ul class="mt-2 space-y-1.5">
+              <li>
+                <span class="text-neon">stripe</span> — HMAC-SHA256 over
+                <code class="text-mint">{'{timestamp}.{payload}'}</code>, emitted as
+                <code class="text-mint">t={'{ts}'},v1={'{hex}'}</code>. Timestamp is re-stamped on every edit.
+              </li>
+              <li>
+                <span class="text-neon">github</span> — HMAC-SHA256 over the raw body, emitted as
+                <code class="text-mint">sha256={'{hex}'}</code>.
+              </li>
+              <li>
+                <span class="text-neon">generic</span> — plain hex HMAC-SHA256 of the raw body in
+                <code class="text-mint">x-signature</code>.
+              </li>
+            </ul>
+            <p class="mt-2">
+              Signatures are computed over the exact bytes in the textarea — whitespace included —
+              matching how providers sign the raw request body.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contextual internal link graph -->
+      <RelatedTools slug={tool.slug} />
+    </div>
+  </ConsoleShell>
+</BaseLayout>
+
+<script>
+  /* ── Webhook signature engine — native Web Crypto, zero dependencies ── */
+
+  const serviceSelect = document.getElementById('service-select') as HTMLSelectElement;
+  const secretInput = document.getElementById('secret-input') as HTMLInputElement;
+  const payloadInput = document.getElementById('payload-input') as HTMLTextAreaElement;
+  const signStatus = document.getElementById('sign-status') as HTMLParagraphElement;
+  const headersOutput = document.getElementById('headers-output') as HTMLDivElement;
+  const curlOutput = document.getElementById('curl-output') as HTMLPreElement;
+  const targetUrl = document.getElementById('target-url') as HTMLInputElement;
+  const copyHeadersBtn = document.getElementById('copy-headers-btn') as HTMLButtonElement;
+  const copyCurlBtn = document.getElementById('copy-curl-btn') as HTMLButtonElement;
+
+  const enc = new TextEncoder();
+
+  /** hex-encoded HMAC-SHA256(message) keyed by secret, via crypto.subtle. */
+  async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+    return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /** Build the full header set for the selected scheme. */
+  async function buildHeaders(
+    service: string,
+    secret: string,
+    payload: string
+  ): Promise<Array<[string, string]>> {
+    if (service === 'stripe') {
+      const t = Math.floor(Date.now() / 1000);
+      const hex = await hmacSha256Hex(secret, `${t}.${payload}`);
+      return [
+        ['content-type', 'application/json'],
+        ['stripe-signature', `t=${t},v1=${hex}`],
+      ];
+    }
+    if (service === 'github') {
+      const hex = await hmacSha256Hex(secret, payload);
+      return [
+        ['content-type', 'application/json'],
+        ['x-github-event', 'push'],
+        ['x-github-delivery', crypto.randomUUID()],
+        ['x-hub-signature-256', `sha256=${hex}`],
+      ];
+    }
+    // generic HMAC-SHA256
+    const hex = await hmacSha256Hex(secret, payload);
+    return [
+      ['content-type', 'application/json'],
+      ['x-signature', hex],
+    ];
+  }
+
+  const esc = (s: string) =>
+    s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+
+  function renderHeaders(headers: Array<[string, string]>) {
+    headersOutput.innerHTML = headers
+      .map(
+        ([k, v]) =>
+          `<div class="flex gap-2"><span class="shrink-0 text-neon">${esc(k)}:</span><span class="break-all">${esc(v)}</span></div>`
+      )
+      .join('');
+  }
+
+  function buildCurl(headers: Array<[string, string]>, payload: string, url: string): string {
+    const headerFlags = headers.map(([k, v]) => `  -H '${k}: ${v.replace(/'/g, `'\\''`)}' \\`);
+    const body = payload.replace(/'/g, `'\\''`);
+    return [`curl -X POST '${url.replace(/'/g, '')}' \\`, ...headerFlags, `  -d '${body}'`].join('\n');
+  }
+
+  function setStatus(kind: 'ok' | 'warn' | 'err' | 'idle', msg: string) {
+    const base = 'rounded border px-3 py-2 text-[11px] ';
+    const skin = {
+      ok: 'border-mint/40 bg-mint/10 text-mint',
+      warn: 'border-flare/40 bg-flare/10 text-flare',
+      err: 'border-alert/40 bg-alert/10 text-alert',
+      idle: 'border-dock-700 bg-dock-950 text-dock-400',
+    }[kind];
+    signStatus.className = base + skin;
+    signStatus.textContent = msg;
+  }
+
+  /* ── Reactive wiring ─────────────────────────────────────────────────── */
+
+  let lastHeaders: Array<[string, string]> = [];
+  let seq = 0; // async guard: only the newest computation may render
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function compute() {
+    const mySeq = ++seq;
+    const secret = secretInput.value;
+    const payload = payloadInput.value;
+    const service = serviceSelect.value;
+
+    if (!secret) {
+      lastHeaders = [];
+      headersOutput.innerHTML = '<span class="text-dock-400">// signature headers will appear here</span>';
+      curlOutput.textContent = '// curl command will appear here';
+      setStatus('idle', '— enter a secret to sign —');
+      return;
+    }
+
+    let jsonNote = '';
+    try {
+      JSON.parse(payload);
+    } catch {
+      jsonNote = ' · payload is not valid JSON (signed as raw text — providers sign raw bytes too)';
+    }
+
+    try {
+      const headers = await buildHeaders(service, secret, payload);
+      if (mySeq !== seq) return; // superseded by a newer edit
+      lastHeaders = headers;
+      renderHeaders(headers);
+      curlOutput.textContent = buildCurl(headers, payload, targetUrl.value.trim() || 'http://localhost:3000/webhook');
+      const bytes = enc.encode(payload).length;
+      const scheme = service === 'stripe' ? 'stripe-signature v1' : service === 'github' ? 'x-hub-signature-256' : 'HMAC-SHA256 hex';
+      setStatus(jsonNote ? 'warn' : 'ok', `${jsonNote ? '⚠' : '✓'} signed ${bytes.toLocaleString()} bytes — ${scheme}${jsonNote}`);
+    } catch (e) {
+      if (mySeq !== seq) return;
+      setStatus('err', `✗ signing failed — ${(e as Error).message}`);
+    }
+  }
+
+  function queueCompute() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(compute, 200);
+  }
+
+  serviceSelect.addEventListener('change', compute);
+  secretInput.addEventListener('input', queueCompute);
+  payloadInput.addEventListener('input', queueCompute);
+  targetUrl.addEventListener('input', queueCompute);
+
+  async function copyWith(btn: HTMLButtonElement, text: string) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* clipboard denied — user can select manually */
+    }
+    const original = btn.textContent;
+    btn.textContent = '✓ copied';
+    setTimeout(() => (btn.textContent = original), 1500);
+  }
+
+  copyHeadersBtn.addEventListener('click', () =>
+    copyWith(copyHeadersBtn, lastHeaders.map(([k, v]) => `${k}: ${v}`).join('\n'))
+  );
+  copyCurlBtn.addEventListener('click', () => copyWith(copyCurlBtn, curlOutput.textContent ?? ''));
+
+  /* Secret + payload are server-rendered into the form — sign them in place
+     without rewriting the inputs (zero layout shift). */
+  compute();
+</script>

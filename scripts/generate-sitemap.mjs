@@ -22,7 +22,7 @@ const root = resolve(__dirname, '..');
 const dict = await import(
   pathToFileURL(resolve(root, 'src/data/toolsDictionary.js')).href
 );
-const { SITE, TOOLS } = dict;
+const { SITE, TOOLS, LAB_TOOLS } = dict;
 
 // lastmod uses the current calendar date (2026), full W3C datetime format.
 const lastmod = new Date().toISOString().slice(0, 10);
@@ -31,6 +31,11 @@ const urls = [
   { loc: `${SITE.domain}/`, changefreq: 'weekly', priority: '1.0' },
   ...TOOLS.map((tool) => ({
     loc: `${SITE.domain}/mock/${tool.slug}`,
+    changefreq: 'weekly',
+    priority: '0.9',
+  })),
+  ...(LAB_TOOLS ?? []).map((tool) => ({
+    loc: `${SITE.domain}${tool.path}`,
     changefreq: 'weekly',
     priority: '0.9',
   })),
