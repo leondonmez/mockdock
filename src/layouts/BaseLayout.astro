@@ -44,6 +44,27 @@ const jsonLd = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 };
 
+// Brand-entity schema on the homepage only: Organization + WebSite anchor the
+// "MockDock" entity for branded-query resolution.
+const brandLd =
+  pagePath === '/'
+    ? [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: SITE.name,
+          url: `${SITE.domain}/`,
+          logo: `${SITE.domain}/favicon.svg`,
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: SITE.name,
+          url: `${SITE.domain}/`,
+        },
+      ]
+    : null;
+
 // BreadcrumbList on every route except the homepage: Home → current page.
 const breadcrumbLd =
   pagePath === '/'
@@ -110,6 +131,7 @@ const breadcrumbLd =
 
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     {breadcrumbLd && <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} />}
+    {brandLd && brandLd.map((ld) => <script type="application/ld+json" set:html={JSON.stringify(ld)} />)}
   </head>
   <body class="flex min-h-screen flex-col bg-dock-950 text-dock-200">
     <slot />

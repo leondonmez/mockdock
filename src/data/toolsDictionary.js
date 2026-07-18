@@ -21,9 +21,9 @@ export const SITE = {
   name: 'MockDock',
   domain: 'https://mockdock.dev',
   tagline: 'Free mock API sandbox & webhook simulator. No signup. No server. The data is in the URL.',
-  homeTitle: 'MockDock - Instant API Mocking and Mock Servers',
+  homeTitle: 'MockDock — Official Site & Mock API Dashboard',
   homeDescription:
-    'MockDock is the fastest way to create mock APIs and test endpoints. Start building and testing your integrations in seconds. No setup required.',
+    'Welcome to MockDock — the official home for the MockDock platform. Easily spin up mock APIs and test environments in seconds. Get started for free.',
   homeKeywords: [
     'mock api sandbox free',
     'webhook simulator online',
